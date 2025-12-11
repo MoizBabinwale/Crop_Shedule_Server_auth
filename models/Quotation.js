@@ -40,6 +40,11 @@ const quotationSchema = new mongoose.Schema(
       },
     ],
     farmerInfo: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
       name: { type: String, required: true },
       place: { type: String, required: true },
       tahsil: { type: String, required: true },

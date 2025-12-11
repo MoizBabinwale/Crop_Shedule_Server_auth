@@ -39,6 +39,11 @@ const scheduleSchema = new mongoose.Schema({
     ref: "ScheduleBill",
     default: null,
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("Schedule", scheduleSchema);

@@ -15,6 +15,11 @@ const quotationbillRoutes = require("./routes/quotationbillRoutes.js");
 const quotationRoutes = require("./routes/quotationRoutes.js");
 const scheduleBillRoutes = require("./routes/scheduleBillRoutes.js");
 const instructionRoutes = require("./routes/instructionRoutes.js");
+const authRoutes = require("./routes/auth.js");
+const adminRoutes = require("./routes/admin.js");
+
+app.use("/api/auth", authRoutes);
+app.use("/api/auth/admin", adminRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/crop", cropRoutes);
 app.use("/api/products", productRoutes);

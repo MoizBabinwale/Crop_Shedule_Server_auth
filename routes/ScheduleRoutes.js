@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const Schedule = require("../models/Schedule");
 const Crop = require("../models/Crop.js");
+const { auth } = require("../middleware/auth.js");
+const User = require("../models/User.js");
 
 // GET /schedule/:cropId
 router.get("/get/:cropId", async (req, res) => {
@@ -21,11 +23,11 @@ router.get("/get/:cropId", async (req, res) => {
 });
 
 // POST /schedule/create
-router.post("/create/:cropId", async (req, res) => {
+router.post("/create/:cropId", auth, async (req, res) => {
   try {
     const cropId = req.params.cropId;
 
-    const { weeks, totalPlants } = req.body;
+    const { weeks, totalPlants, userId } = req.body;
 
     // Check if schedule already exists
     const existing = await Schedule.findOne({ cropId });
@@ -43,9 +45,14 @@ router.post("/create/:cropId", async (req, res) => {
     const newSchedule = new Schedule({
       cropId,
       weeks,
+      userId,
     });
 
     const saved = await newSchedule.save();
+
+    // ✅ Push quotation id into User model
+    await User.findByIdAndUpdate(userId, { $push: { schedules: saved._id } }, { new: true });
+
     res.status(201).json({ message: "Schedule created", data: saved });
   } catch (error) {
     console.error("Error creating/updating schedule:", error);

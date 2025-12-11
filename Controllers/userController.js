@@ -18,7 +18,7 @@ const Signup = async (req, res) => {
     return res.status(404).json({ message: "User Alredy Exist" });
   }
   try {
-    const otp = await generateOTP();
+    // const otp = await generate OTP();
     let config = {
       service: "gmail",
       auth: {

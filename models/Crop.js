@@ -16,6 +16,11 @@ const cropSchema = new mongoose.Schema({
   weekInterval: {
     type: Number,
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 const Crop = mongoose.model("Crop", cropSchema);

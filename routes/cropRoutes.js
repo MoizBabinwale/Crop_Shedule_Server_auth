@@ -3,12 +3,13 @@ const router = express.Router();
 const Crop = require("../models/Crop");
 const Schedule = require("../models/Schedule");
 const Quotation = require("../models/Quotation");
+const { auth } = require("../middleware/auth");
 
 // POST - Add new crop
-router.post("/add", async (req, res) => {
+router.post("/add", auth, async (req, res) => {
   try {
-    const { name, description, weeks, weekInterval } = req.body;
-    const newCrop = new Crop({ name, description, weeks, weekInterval });
+    const { name, description, weeks, weekInterval, userId } = req.body;
+    const newCrop = new Crop({ name, description, weeks, weekInterval, userId });
     await newCrop.save();
     res.status(201).json({ message: "Crop added successfully", newCrop });
   } catch (error) {
