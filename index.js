@@ -5,7 +5,19 @@ require("./config/config");
 
 const app = express();
 
-app.use(cors());
+const cors = require("cors");
+
+app.use(
+  cors({
+    origin: "*", // or your domain
+    methods: "GET,POST,PUT,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type, Authorization",
+  })
+);
+
+// handle preflight
+app.options("*", cors());
+
 app.use(express.json());
 
 const scheduleRoutes = require("./routes/ScheduleRoutes.js");
