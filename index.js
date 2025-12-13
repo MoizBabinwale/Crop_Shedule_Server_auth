@@ -5,8 +5,6 @@ require("./config/config");
 
 const app = express();
 
-const cors = require("cors");
-
 app.use(
   cors({
     origin: "*", // or your domain

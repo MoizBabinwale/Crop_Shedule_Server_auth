@@ -10,8 +10,6 @@ dotenv.config();
 // Register new user
 router.post("/register", async (req, res) => {
   try {
-    console.log("Register ", req.body);
-
     const { name, email, number, password } = req.body;
 
     // Validate required fields
@@ -52,8 +50,6 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { number, password } = req.body;
-
-    console.log("Login ", req.body);
 
     if (!number || !password) return res.status(400).json({ message: "Please provide email and password" });
 
