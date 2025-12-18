@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 // const auth = require("../middleware/auth");
-const isAdmin = require("../middleware/adminMiddleware");
+const { adminAuth, auth } = require("../middleware/auth");
 
 // Get new (unapproved) users
 router.get("/new-users", async (req, res) => {
@@ -69,13 +69,13 @@ router.delete("/delete/:id", async (req, res) => {
 });
 
 // UPDATE USER ROLE
-router.put("/update-role/:id", isAdmin, async (req, res) => {
+router.put("/update-role/:id", auth, adminAuth, async (req, res) => {
   try {
     const { role } = req.body;
 
     // Validate role
     if (!["user", "admin", "subadmin"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
+      return res.status(400).json({ message: "You are not valid to do This change" });
     }
 
     const user = await User.findById(req.params.id);
@@ -94,11 +94,33 @@ router.put("/update-role/:id", isAdmin, async (req, res) => {
 // GET ALL USERS (admin only)
 router.get("/get-users", async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // Exclude passwords
+    const users = await User.aggregate([
+      {
+        $addFields: {
+          roleOrder: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$role", "admin"] }, then: 1 },
+                { case: { $eq: ["$role", "subadmin"] }, then: 2 },
+              ],
+              default: 3, // normal users
+            },
+          },
+        },
+      },
+      { $sort: { roleOrder: 1 } },
+      {
+        $project: {
+          password: 0,
+          roleOrder: 0,
+        },
+      },
+    ]);
+
     return res.status(200).json({ success: true, users });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: "Server Error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

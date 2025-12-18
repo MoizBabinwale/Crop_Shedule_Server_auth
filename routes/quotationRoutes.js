@@ -35,7 +35,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Get all quotations
-router.get("/", auth, async (req, res) => {
+router.get("/", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   try {
     const quotations = await Quotation.find().sort({ createdAt: -1 });
     res.status(200).json(quotations);

@@ -6,8 +6,6 @@ const router = express.Router();
 
 router.post("/", async (req, res) => {
   try {
-    console.log("req.body ", req.body);
-
     const { name, pricePerAcre, category, rate, bottlePerml } = req.body;
 
     // Validate product name

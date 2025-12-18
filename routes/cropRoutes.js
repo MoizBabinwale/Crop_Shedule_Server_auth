@@ -17,11 +17,23 @@ router.post("/add", auth, async (req, res) => {
   }
 });
 
-// GET all crops
 router.get("/", async (req, res) => {
   try {
     const crops = await Crop.find();
-    res.json(crops);
+
+    const cropsWithBillStatus = await Promise.all(
+      crops.map(async (crop) => {
+        const schedule = await Schedule.findOne({ cropId: crop._id });
+
+        return {
+          ...crop.toObject(),
+          scheduleId: schedule ? schedule._id : null,
+          hasBill: schedule?.scheduleBillId ? true : false,
+        };
+      })
+    );
+
+    res.status(200).json(cropsWithBillStatus);
   } catch (error) {
     console.error("Error fetching crops:", error);
     res.status(500).json({ error: "Error fetching crops" });

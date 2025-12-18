@@ -27,6 +27,7 @@ const scheduleBillRoutes = require("./routes/scheduleBillRoutes.js");
 const instructionRoutes = require("./routes/instructionRoutes.js");
 const authRoutes = require("./routes/auth.js");
 const adminRoutes = require("./routes/admin.js");
+const contactRoutes = require("./routes/contactRoutes.js");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/auth/admin", adminRoutes);
@@ -37,6 +38,7 @@ app.use("/api/quotationbills", quotationbillRoutes);
 app.use("/api/quotations", quotationRoutes);
 app.use("/api/schedulebill", scheduleBillRoutes);
 app.use("/api/instructions", instructionRoutes);
+app.use("/api/notifications", contactRoutes);
 
 app.get("/", (req, res) => {
   res.send("Server is up and running!");
