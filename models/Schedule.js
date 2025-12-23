@@ -44,6 +44,10 @@ const scheduleSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  approved: {
+    type: Boolean,
+    default: true, // admin-created schedules
+  },
 });
 
 module.exports = mongoose.model("Schedule", scheduleSchema);

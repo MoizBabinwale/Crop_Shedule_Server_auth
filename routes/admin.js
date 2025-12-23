@@ -124,4 +124,65 @@ router.get("/get-users", async (req, res) => {
   }
 });
 
+// routes/adminRoutes.js or authRoutes.js
+
+router.put("/edit-user/:userId", auth, async (req, res) => {
+  try {
+    // 🔐 Admin only
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { name, email, number, role, approved, place, tahsil, district, state } = req.body;
+
+    // 🔎 Check email uniqueness
+    const emailExists = await User.findOne({
+      email,
+      _id: { $ne: req.params.userId },
+    });
+    if (emailExists) {
+      return res.status(400).json({ message: "Email already in use" });
+    }
+
+    // 🔎 Check number uniqueness
+    const numberExists = await User.findOne({
+      number,
+      _id: { $ne: req.params.userId },
+    });
+    if (numberExists) {
+      return res.status(400).json({ message: "Number already in use" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.userId,
+      {
+        name,
+        email,
+        number,
+        role,
+        approved,
+        place,
+        tahsil,
+        district,
+        state,
+      },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Edit user error:", error);
+    res.status(500).json({
+      message: "Failed to update user",
+    });
+  }
+});
+
 module.exports = router;

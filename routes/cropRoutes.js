@@ -29,6 +29,7 @@ router.get("/", async (req, res) => {
           ...crop.toObject(),
           scheduleId: schedule ? schedule._id : null,
           hasBill: schedule?.scheduleBillId ? true : false,
+          approved: schedule?.approved ? schedule?.approved : false,
         };
       })
     );

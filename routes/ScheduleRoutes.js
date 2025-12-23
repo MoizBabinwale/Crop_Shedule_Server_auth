@@ -26,37 +26,82 @@ router.get("/get/:cropId", async (req, res) => {
 router.post("/create/:cropId", auth, async (req, res) => {
   try {
     const cropId = req.params.cropId;
-
     const { weeks, totalPlants, userId } = req.body;
+
+    // 🔐 role from token
+    const isSubAdmin = req.user.role === "subadmin";
 
     // Check if schedule already exists
     const existing = await Schedule.findOne({ cropId });
 
     if (existing) {
-      // Update the existing schedule's weeks
-
       existing.weeks = weeks;
       existing.totalPlants = totalPlants;
+
+      // if subadmin edits, re-approval required
+      if (isSubAdmin) {
+        existing.approved = false;
+      }
+
       const updated = await existing.save();
-      return res.status(200).json({ message: "Schedule updated", data: updated });
+      return res.status(200).json({
+        message: "Schedule updated",
+        data: updated,
+      });
     }
 
-    // Create a new schedule
+    // Create new schedule
     const newSchedule = new Schedule({
       cropId,
       weeks,
+      totalPlants,
       userId,
+      approved: isSubAdmin ? false : true,
     });
 
     const saved = await newSchedule.save();
 
-    // ✅ Push quotation id into User model
     await User.findByIdAndUpdate(userId, { $push: { schedules: saved._id } }, { new: true });
 
-    res.status(201).json({ message: "Schedule created", data: saved });
+    res.status(201).json({
+      message: "Schedule created",
+      data: saved,
+    });
   } catch (error) {
     console.error("Error creating/updating schedule:", error);
-    res.status(500).json({ message: "Failed to create/update schedule", error });
+    res.status(500).json({
+      message: "Failed to create/update schedule",
+      error,
+    });
+  }
+});
+
+// PUT /schedule/approve/:scheduleId
+router.put("/approve/:scheduleId", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updated = await Schedule.findByIdAndUpdate(
+      req.params.scheduleId,
+      { $set: { approved: true } },
+      { new: true, runValidators: false } // 🔥 important
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
+    res.status(200).json({
+      message: "Schedule approved successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Approve error:", error);
+    res.status(500).json({
+      message: "Failed to approve schedule",
+    });
   }
 });
 
