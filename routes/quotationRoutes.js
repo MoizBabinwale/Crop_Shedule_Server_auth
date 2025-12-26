@@ -24,16 +24,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Get quotation by ID
-router.get("/:id", async (req, res) => {
-  try {
-    const quotation = await Quotation.findById(req.params.id);
-    res.status(200).json(quotation);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch quotation" });
-  }
-});
-
 // Get all quotations
 router.get("/", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   try {
@@ -64,17 +54,28 @@ router.delete("/:id", auth, roleAuth(["admin", "subadmin"]), async (req, res) =>
   }
 });
 
-router.get("/user", async (req, res) => {
+// ✅ FIRST: static routes
+router.get("/by-user", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate("quotations");
 
     if (!user) {
-      return res.status(404).json({ msg: "User not found" });
+      return res.json([]);
     }
 
     res.json(user.quotations);
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
+  }
+});
+
+// ✅ LAST: dynamic route
+router.get("/:id", async (req, res) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id);
+    res.status(200).json(quotation);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch quotation" });
   }
 });
 
