@@ -91,10 +91,11 @@ router.put("/update-role/:id", auth, adminAuth, async (req, res) => {
   }
 });
 
-// GET ALL USERS (admin only)
+// GET ALL USERS WITH QUOTATION COUNT (admin only)
 router.get("/get-users", async (req, res) => {
   try {
     const users = await User.aggregate([
+      // 1️⃣ Role priority for sorting
       {
         $addFields: {
           roleOrder: {
@@ -103,16 +104,38 @@ router.get("/get-users", async (req, res) => {
                 { case: { $eq: ["$role", "admin"] }, then: 1 },
                 { case: { $eq: ["$role", "subadmin"] }, then: 2 },
               ],
-              default: 3, // normal users
+              default: 3,
             },
           },
         },
       },
+
+      // 2️⃣ Lookup quotations created by this user
+      {
+        $lookup: {
+          from: "quotations", // ⚠️ MongoDB collection name (plural, lowercase)
+          localField: "_id",
+          foreignField: "farmerInfo._id",
+          as: "quotations",
+        },
+      },
+
+      // 3️⃣ Add quotation count
+      {
+        $addFields: {
+          totalQuotations: { $size: "$quotations" },
+        },
+      },
+
+      // 4️⃣ Sort by role
       { $sort: { roleOrder: 1 } },
+
+      // 5️⃣ Remove sensitive/unwanted fields
       {
         $project: {
           password: 0,
           roleOrder: 0,
+          quotations: 0, // ❌ remove heavy array
         },
       },
     ]);

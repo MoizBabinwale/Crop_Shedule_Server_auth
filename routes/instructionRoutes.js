@@ -13,7 +13,6 @@ router.post("/:id", async (req, res) => {
       newInstruction = new Instruction({ text });
       await newInstruction.save();
     } else {
-      console.log("edit hit");
       newInstruction = await Instruction.findByIdAndUpdate(req.params.id, req.body, { new: true });
     }
     res.status(201).json(newInstruction);
@@ -35,8 +34,6 @@ router.get("/", async (req, res) => {
 // Delete instruction
 router.post("/delinstruction/:id", async (req, res) => {
   try {
-    console.log("delete ");
-
     await Instruction.findByIdAndDelete(req.params.id);
     res.json({ message: "Instruction deleted" });
   } catch (err) {
