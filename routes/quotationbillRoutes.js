@@ -11,13 +11,41 @@ const Product = require("../models/Product");
 router.post("/:quotationId/:acres", async (req, res) => {
   try {
     const { quotationId, acres } = req.params;
-    const quotation = await Quotation.findById(quotationId);
-    if (!quotation) return res.status(404).json({ message: "Quotation not found" });
 
+    const quotation = await Quotation.findById(quotationId);
+    if (!quotation) {
+      return res.status(404).json({ message: "Quotation not found" });
+    }
+
+    /* --------------------------------------------------
+       ✅ 1. IF BILL ALREADY EXISTS → RETURN IT
+    -------------------------------------------------- */
+    if (quotation.quoBillId) {
+      const existingBill = await QuotationBill.findById(quotation.quoBillId);
+
+      if (existingBill) {
+        return res.status(200).json({
+          message: "Quotation bill already exists",
+          bill: existingBill,
+        });
+      }
+    }
+
+    /* --------------------------------------------------
+       ✅ 2. CREATE NEW BILL
+    -------------------------------------------------- */
     const scheduleId = quotation.scheduleId;
+
     const scheduleData = await Schedule.findById(scheduleId);
+    if (!scheduleData) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
     const scheduleBill = await ScheduleBill.findOne({ scheduleId });
-    if (!scheduleBill) return res.status(404).json({ message: "Schedule Bill not found" });
+    if (!scheduleBill) {
+      return res.status(404).json({ message: "Schedule Bill not found" });
+    }
+
     const productStats = {};
 
     // Loop through weeks
@@ -26,66 +54,52 @@ router.post("/:quotationId/:acres", async (req, res) => {
         const { name, quantity, bottlePerml } = product;
 
         if (!productStats[name]) {
-          productStats[name] = { times: 0, totalMl: 0, ltrKg: 0 };
+          productStats[name] = {
+            times: 0,
+            totalMl: 0,
+            ltrKg: 0,
+            bottlePerml: bottlePerml || 0,
+          };
         }
 
-        // Increment times
         productStats[name].times += 1;
-        productStats[name].bottlePerml = bottlePerml;
 
-        // Extract ml/grm
         const matchMl = quantity?.match(/([\d.]+)\s*ml\/g/i);
-        if (matchMl) productStats[name].totalMl += parseFloat(matchMl[1]);
+        if (matchMl) {
+          productStats[name].totalMl += parseFloat(matchMl[1]);
+        }
 
-        // Extract ltr/kg
-        const matchLtr = quantity?.match(/([\d.]+)\s*(?:ltr|l)\/kg/i);
-        if (matchLtr) productStats[name].ltrKg += parseFloat(matchLtr[1]);
+        const matchLtr = quantity?.match(/([\d.]+)\s*(ltr|l)\/kg/i);
+        if (matchLtr) {
+          productStats[name].ltrKg += parseFloat(matchLtr[1]);
+        }
       });
     });
 
-    const productNames = Object.keys(productStats);
+    const multipliedItems = scheduleBill.items.map((item) => {
+      const stats = productStats[item.name];
 
-    // Fetch products from DB (all at once instead of inside the loop)
-    const productsFromDb = await Product.find({ name: { $in: productNames } });
-
-    // Create a lookup map for fast access
-    const productMap = {};
-    productsFromDb.forEach((p) => {
-      productMap[p.name] = p;
-    });
-    let missingItem = null;
-    // Multiply for acres & match rates from ScheduleBill
-    const multipliedItems = Object.keys(productStats).map((name) => {
-      const matchingBillItem = scheduleBill.items.find((i) => i.name === name);
-
-      if (!matchingBillItem) {
-        missingItem = name; // mark missing but don't return res here
-        return null;
+      if (!stats) {
+        throw new Error(`Missing product stats for ${item.name}`);
       }
 
-      const productDoc = productMap[name];
-
       return {
-        name,
-        times: productStats[name].times,
-        totalMl: productStats[name].totalMl * acres,
-        ltrKg: productStats[name].ltrKg * acres,
-        rate: matchingBillItem?.rate || 0,
-        totalAmt: matchingBillItem.totalAmt * acres, // example calc
-        bottlePerml: productDoc?.bottlePerml || 0,
+        name: item.name,
+        times: stats.times,
+        totalMl: stats.totalMl * acres,
+        ltrKg: stats.ltrKg * acres,
+        rate: item.rate,
+        totalAmt: item.totalAmt * acres,
+        bottlePerml: stats.bottlePerml,
       };
     });
-    // If any product was missing → stop here safely
-    if (missingItem) {
-      return res.status(404).json({ message: `Schedule Bill item not found for product: ${missingItem}` });
-    }
-    // Multiply the cost info
-    const multiplyCost = (costObj) => ({
-      totalRs: (costObj.totalRs || 0) * acres,
-      perHectare: costObj.perHectare,
-      perAcre: costObj.perAcre,
-      perBigha: costObj.perBigha,
-      perGuntha: costObj.perGuntha,
+
+    const multiplyCost = (cost = {}) => ({
+      totalRs: (cost.totalRs || 0) * acres,
+      perAcre: cost.perAcre || 0,
+      perHectare: cost.perHectare || 0,
+      perBigha: cost.perBigha || 0,
+      perGuntha: cost.perGuntha || 0,
     });
 
     const newQuotationBill = new QuotationBill({
@@ -111,10 +125,20 @@ router.post("/:quotationId/:acres", async (req, res) => {
     });
 
     await newQuotationBill.save();
-    return res.status(201).json({ message: "Quotation bill created", bill: newQuotationBill });
+
+    /* --------------------------------------------------
+       ✅ 3. SAVE BILL ID INTO QUOTATION
+    -------------------------------------------------- */
+    quotation.quoBillId = newQuotationBill._id;
+    await quotation.save();
+
+    return res.status(201).json({
+      message: "Quotation bill created",
+      bill: newQuotationBill,
+    });
   } catch (error) {
     console.error("Error creating quotation bill:", error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: error.message || "Server error" });
   }
 });
 

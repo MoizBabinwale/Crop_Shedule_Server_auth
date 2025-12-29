@@ -27,23 +27,36 @@ router.post("/", async (req, res) => {
 });
 
 // Get quotation count per user (Admin / Subadmin)
-router.get("/", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
-  try {
-    const quotationCounts = await Quotation.aggregate([
-      {
-        $group: {
-          _id: "$farmerInfo._id", // ✅ correct user reference
-          totalQuotations: { $sum: 1 },
-        },
+router.get("/count/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
+  const data = await Quotation.aggregate([
+    {
+      $group: {
+        _id: "$farmerInfo._id",
+        totalQuotations: { $sum: 1 },
       },
-      {
-        $sort: { totalQuotations: -1 },
-      },
-    ]);
+    },
+  ]);
 
-    res.status(200).json(quotationCounts);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch quotation counts" });
+  res.json(data);
+});
+
+// GET ALL QUOTATIONS (Admin / Subadmin)
+router.get("/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
+  try {
+    const quotations = await Quotation.find()
+      .populate({
+        path: "farmerInfo._id",
+        select: "name email role approved",
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ quotations });
+  } catch (error) {
+    console.error("Error fetching quotations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch quotations",
+    });
   }
 });
 
@@ -87,7 +100,7 @@ router.get("/count/my", auth, async (req, res) => {
     const userId = req.user.id || req.user._id;
 
     const count = await Quotation.countDocuments({
-      "farmerInfo._id": new mongoose.Types.ObjectId(userId),
+      "farmerInfo._id": userId.toString(),
     });
 
     res.status(200).json({ count });

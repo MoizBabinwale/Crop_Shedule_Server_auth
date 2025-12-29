@@ -12,6 +12,12 @@ const quotationSchema = new mongoose.Schema(
       ref: "Schedule",
       required: true,
     },
+    // Quotation schema (add this)
+    quoBillId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "QuotationBill",
+      default: null,
+    },
     cropName: String,
     acres: Number,
     weeks: [

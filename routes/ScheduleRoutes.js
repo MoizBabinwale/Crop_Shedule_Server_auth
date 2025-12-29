@@ -26,7 +26,10 @@ router.get("/get/:cropId", async (req, res) => {
 router.post("/create/:cropId", auth, async (req, res) => {
   try {
     const cropId = req.params.cropId;
-    const { weeks, totalPlants, userId } = req.body;
+    const { weeks, totalPlants } = req.body;
+    // ✅ ALWAYS take userId from token
+
+    const userId = req.user.id;
 
     // 🔐 role from token
     const isSubAdmin = req.user.role === "subadmin";
@@ -37,7 +40,7 @@ router.post("/create/:cropId", auth, async (req, res) => {
     if (existing) {
       existing.weeks = weeks;
       existing.totalPlants = totalPlants;
-
+      existing.userId = userId;
       // if subadmin edits, re-approval required
       if (isSubAdmin) {
         existing.approved = false;
