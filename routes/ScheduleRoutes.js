@@ -34,7 +34,7 @@ router.post("/create/:cropId", auth, async (req, res) => {
     // 🔐 role from token
     const isSubAdmin = req.user.role === "subadmin";
 
-    // Check if schedule already exists
+    // Check if schedule acolready exists
     const existing = await Schedule.findOne({ cropId });
 
     if (existing) {
@@ -140,10 +140,13 @@ router.get("/:id", async (req, res) => {
 });
 
 // 📋 Copy Crop API with week adjustment
-router.post("/copyCrop/:cropId", async (req, res) => {
+router.post("/copyCrop/:cropId", auth, async (req, res) => {
   try {
     const { cropId } = req.params;
     const { name, description, weeks } = req.body;
+
+    const userId = req.user.id;
+    const role = req.user.role;
 
     // ✅ 1. Get original crop
     const oldCrop = await Crop.findById(cropId);
@@ -154,6 +157,7 @@ router.post("/copyCrop/:cropId", async (req, res) => {
       name,
       description,
       weeks,
+      userId,
       weekInterval,
     });
 
@@ -199,11 +203,14 @@ router.post("/copyCrop/:cropId", async (req, res) => {
         ...scheduleObj,
         cropId: newCrop._id, // link to new crop
         weeks: oldWeeks,
+        userId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
+        approved: role === "admin" ? true : false,
       };
     });
 
+    // newSchedules.forEach((s) => (s.userId = userId));
     // ✅ 5. Insert duplicated schedules
     if (newSchedules.length > 0) {
       await Schedule.insertMany(newSchedules);
