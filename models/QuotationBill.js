@@ -70,9 +70,11 @@ const QuotationBillSchema = new mongoose.Schema(
       tahsil: { type: String },
       district: { type: String },
       state: { type: String },
+      number: { type: String },
+      email: { type: String },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("QuotationBill", QuotationBillSchema);

@@ -56,9 +56,11 @@ const quotationSchema = new mongoose.Schema(
       tahsil: { type: String, required: true },
       district: { type: String, required: true },
       state: { type: String, required: true },
+      number: { type: String },
+      email: { type: String },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Quotation", quotationSchema);
