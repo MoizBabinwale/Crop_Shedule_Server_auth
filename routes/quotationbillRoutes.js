@@ -46,19 +46,43 @@ router.post("/:quotationId/:acres", async (req, res) => {
       return res.status(404).json({ message: "Schedule Bill not found" });
     }
 
+    // 1. Get all product names
+    const productNames = [];
+
+    scheduleData.weeks.forEach((week) => {
+      week.products.forEach((p) => {
+        if (!productNames.includes(p.name)) {
+          productNames.push(p.name);
+        }
+      });
+    });
+
+    // 2. Fetch all products in ONE query
+    const productsFromDB = await Product.find({
+      name: { $in: productNames },
+    });
+
+    // 3. Create map
+    const productMap = {};
+    productsFromDB.forEach((p) => {
+      productMap[p.name] = p;
+    });
+
+    // 4. Process data
     const productStats = {};
 
-    // Loop through weeks
     scheduleData.weeks.forEach((week) => {
       week.products.forEach((product) => {
-        const { name, quantity, bottlePerml } = product;
+        const { name, quantity } = product;
+
+        const bottlePerml = productMap[name]?.bottlePerml || 0;
 
         if (!productStats[name]) {
           productStats[name] = {
             times: 0,
             totalMl: 0,
             ltrKg: 0,
-            bottlePerml: bottlePerml || 0,
+            bottlePerml,
           };
         }
 
