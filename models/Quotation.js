@@ -32,6 +32,7 @@ const quotationSchema = new mongoose.Schema(
         productAmountLtr: String,
         useStartDay: String,
         instructions: String,
+        googleEventId: String,
         products: [
           {
             name: String,

@@ -14,17 +14,30 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
   },
+  authProvider: {
+    type: String,
+    enum: ["local", "google"],
+    default: "local",
+  },
 
   number: {
     type: Number,
-    required: true,
+
     unique: true,
-    trim: true,
+
+    sparse: true,
+
+    required: function () {
+      return this.authProvider !== "google";
+    },
   },
 
   password: {
     type: String,
-    required: true,
+
+    required: function () {
+      return this.authProvider !== "google";
+    },
   },
 
   role: {
@@ -63,6 +76,16 @@ const userSchema = new mongoose.Schema({
   tahsil: { type: String },
   district: { type: String },
   state: { type: String },
+  googleId: String,
+
+  googleAccessToken: String,
+
+  googleRefreshToken: String,
+
+  googleCalendarConnected: {
+    type: Boolean,
+    default: false,
+  },
 
   createdAt: {
     type: Date,

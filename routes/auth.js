@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { auth } = require("../middleware/auth");
 const dotenv = require("dotenv");
 dotenv.config();
 
@@ -68,6 +69,62 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     res.json({ token, user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update current authenticated user profile
+router.put("/me", auth, async (req, res) => {
+  try {
+    const { name, email, number, place, tahsil, district, state } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: user._id } });
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email is already in use" });
+      }
+      user.email = email;
+    }
+
+    if (number && number !== user.number) {
+      const existingNumber = await User.findOne({ number, _id: { $ne: user._id } });
+      if (existingNumber) {
+        return res.status(400).json({ message: "Mobile number is already in use" });
+      }
+      user.number = number;
+    }
+
+    if (name) user.name = name;
+    if (place) user.place = place;
+    if (tahsil) user.tahsil = tahsil;
+    if (district) user.district = district;
+    if (state) user.state = state;
+
+    await user.save();
+
+    const updatedUser = user.toObject();
+    delete updatedUser.password;
+
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get current authenticated user
+router.get("/me", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.status(200).json(user);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

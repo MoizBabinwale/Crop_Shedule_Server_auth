@@ -7,25 +7,100 @@ const mongoose = require("mongoose");
 
 const User = require("../models/User");
 const roleAuth = require("../middleware/roleAuth");
-
-// Create new quotation
-router.post("/", async (req, res) => {
+const { addQuotationEvents, deleteQuotationEvents } = require("../utils/googleCalendar");
+router.post("/", auth, async (req, res) => {
   try {
-    const newQuotation = await Quotation.create(req.body);
+    console.log(`[Quotation] 📝 Creating quotation for user...`);
 
-    // ✅ Get userId from farmerInfo
     const userId = req.body.farmerInfo._id;
 
-    // ✅ Push quotation id into User model
-    await User.findByIdAndUpdate(userId, { $push: { quotations: newQuotation._id } }, { new: true });
+    // FIND USER
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // APPROVAL CHECK
+
+    if (!user.approved) {
+      return res.status(403).json({
+        message: "Your account is pending admin approval",
+      });
+    }
+
+    // =========================
+    // AUTO INJECT USER DATA
+    // =========================
+
+    req.body.farmerInfo = {
+      _id: user._id,
+
+      // PRIORITY:
+      // 1. frontend data
+      // 2. db data
+
+      name: req.body.farmerInfo?.name || user.name || "",
+
+      email: user.email || req.body.farmerInfo?.email || "",
+
+      number: user.number || req.body.farmerInfo?.number || "",
+
+      place: req.body.farmerInfo?.place || user.place || "",
+
+      tahsil: req.body.farmerInfo?.tahsil || user.tahsil || "",
+
+      district: req.body.farmerInfo?.district || user.district || "",
+
+      state: req.body.farmerInfo?.state || user.state || "",
+
+      startDate: req.body.farmerInfo?.startDate || "",
+    };
+
+    // CREATE QUOTATION
+
+    const newQuotation = await Quotation.create(req.body);
+
+    console.log(`[Quotation] ✅ Quotation created: ${newQuotation._id}`);
+
+    // SAVE QUOTATION ID
+
+    user.quotations.push(newQuotation._id);
+
+    await user.save();
+
+    // =========================
+    // GOOGLE CALENDAR
+    // =========================
+
+    console.log(`[Quotation] 👤 User: ${user._id}, Google Calendar Connected: ${user.googleCalendarConnected}`);
+
+    if (user.googleCalendarConnected) {
+      console.log(`[Quotation] 📅 Syncing to Google Calendar...`);
+
+      try {
+        await addQuotationEvents(user, newQuotation);
+
+        console.log(`[Quotation] ✅ Calendar sync completed successfully`);
+      } catch (calendarError) {
+        console.error("[Quotation] ❌ Google Calendar sync failed:", calendarError.message);
+      }
+    } else {
+      console.log(`[Quotation] ⚠️ User hasn't connected Google Calendar`);
+    }
 
     res.status(201).json(newQuotation);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error creating quotation" });
+
+    res.status(500).json({
+      message: "Error creating quotation",
+    });
   }
 });
-
 // Get quotation count per user (Admin / Subadmin)
 router.get("/count/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   const data = await Quotation.aggregate([
@@ -95,7 +170,7 @@ router.get("/by-user", auth, async (req, res) => {
   }
 });
 
-router.get("/count/my", auth, async (req, res) => {
+router.get("/count/quotaionCount", auth, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
 
@@ -117,6 +192,33 @@ router.get("/:id", async (req, res) => {
     res.status(200).json(quotation);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch quotation" });
+  }
+});
+
+// Delete Google Calendar events for a quotation (one-click)
+router.delete("/:id/calendar-sync", auth, async (req, res) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id);
+    if (!quotation) return res.status(404).json({ message: "Quotation not found" });
+
+    // Ensure only the quotation owner or admin can remove calendar events
+    const requesterId = (req.user?.id || req.user?._id).toString();
+
+    const quotationOwnerId = quotation.farmerInfo._id.toString();
+    if (quotationOwnerId !== requesterId) {
+      return res.status(403).json({
+        message: "Not authorized to remove calendar events for this quotation",
+      });
+    }
+    const user = await User.findById(requesterId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await deleteQuotationEvents(user, quotation);
+
+    res.status(200).json({ message: "Calendar events removed" });
+  } catch (err) {
+    console.error("Failed to delete calendar events:", err);
+    res.status(500).json({ message: "Failed to delete calendar events", error: err.message });
   }
 });
 

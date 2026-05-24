@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 require("./config/config");
+require("./config/passport");
 
 const app = express();
 
@@ -10,7 +11,7 @@ app.use(
     origin: "*", // or your domain
     methods: "GET,POST,PUT,DELETE,OPTIONS",
     allowedHeaders: "Content-Type, Authorization",
-  })
+  }),
 );
 
 // handle preflight
@@ -25,11 +26,16 @@ const quotationbillRoutes = require("./routes/quotationbillRoutes.js");
 const quotationRoutes = require("./routes/quotationRoutes.js");
 const scheduleBillRoutes = require("./routes/scheduleBillRoutes.js");
 const instructionRoutes = require("./routes/instructionRoutes.js");
-const authRoutes = require("./routes/auth.js");
+const auth = require("./routes/auth.js");
 const adminRoutes = require("./routes/admin.js");
 const contactRoutes = require("./routes/contactRoutes.js");
+const passport = require("passport");
+app.use(passport.initialize());
 
-app.use("/api/auth", authRoutes);
+const oauthRoutes = require("./routes/oauthRoutes");
+app.use("/auth", oauthRoutes);
+
+app.use("/api/auth", auth);
 app.use("/api/auth/admin", adminRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/crop", cropRoutes);

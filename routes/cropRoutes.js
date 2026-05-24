@@ -17,6 +17,39 @@ router.post("/add", auth, async (req, res) => {
   }
 });
 
+router.get("/with-bill-status", async (req, res) => {
+  try {
+    const crops = await Crop.find();
+
+    const schedules = await Schedule.find().select("cropId scheduleBillId");
+
+    const scheduleMap = {};
+
+    schedules.forEach((schedule) => {
+      scheduleMap[schedule.cropId.toString()] = {
+        scheduleId: schedule._id,
+        hasBill: !!schedule.scheduleBillId,
+      };
+    });
+
+    const result = crops.map((crop) => ({
+      ...crop.toObject(),
+
+      scheduleId: scheduleMap[crop._id.toString()]?.scheduleId || null,
+
+      hasBill: scheduleMap[crop._id.toString()]?.hasBill || false,
+    }));
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: "Failed to fetch crops",
+    });
+  }
+});
+
 router.get("/", async (req, res) => {
   try {
     const crops = await Crop.find();
@@ -31,7 +64,7 @@ router.get("/", async (req, res) => {
           hasBill: schedule?.scheduleBillId ? true : false,
           approved: schedule?.approved ? schedule?.approved : false,
         };
-      })
+      }),
     );
 
     res.status(200).json(cropsWithBillStatus);

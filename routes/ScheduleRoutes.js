@@ -89,7 +89,7 @@ router.put("/approve/:scheduleId", auth, async (req, res) => {
     const updated = await Schedule.findByIdAndUpdate(
       req.params.scheduleId,
       { $set: { approved: true } },
-      { new: true, runValidators: false } // 🔥 important
+      { new: true, runValidators: false }, // 🔥 important
     );
 
     if (!updated) {
