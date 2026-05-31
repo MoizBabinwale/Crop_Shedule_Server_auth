@@ -50,5 +50,21 @@ app.get("/", (req, res) => {
   res.send("Server is up and running!");
 });
 
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled server error:", err);
+  res.status(err.status || 500).json({
+    message: process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+  });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+}
+
+module.exports = app;

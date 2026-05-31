@@ -37,8 +37,9 @@ router.get(
 
   async (req, res) => {
     const { token } = req.user;
+    const frontendUrl = process.env.GOOGLE_FRONTEND_URL || "http://localhost:3000";
 
-    res.redirect(`${process.env.GOOGLE_FRONTEND_URL}/google-success?token=${token}`);
+    res.redirect(`${frontendUrl}/google-success?token=${token}`);
   },
 );
 

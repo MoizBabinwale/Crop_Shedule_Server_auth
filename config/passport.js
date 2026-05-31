@@ -10,6 +10,17 @@ const Quotation = require("../models/Quotation");
 
 const { addQuotationEvents } = require("../utils/googleCalendar");
 
+const parseOAuthState = (rawState) => {
+  if (!rawState) return {};
+
+  try {
+    return JSON.parse(rawState);
+  } catch (error) {
+    console.warn("Invalid Google OAuth state received:", error.message);
+    return {};
+  }
+};
+
 passport.use(
   new GoogleStrategy(
     {
@@ -24,9 +35,13 @@ passport.use(
 
     async (req, accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails[0].value;
+        const email = profile.emails?.[0]?.value;
 
-        const state = JSON.parse(req.query.state);
+        if (!email) {
+          return done(new Error("Google profile did not include an email address."), null);
+        }
+
+        const state = parseOAuthState(req.query.state);
 
         const existingUserId = state.userId;
 
@@ -59,7 +74,7 @@ passport.use(
           // AUTO SYNC QUOTATION
           // =========================
 
-          if (quotationId) {
+          if (user && quotationId) {
             try {
               const quotation = await Quotation.findById(quotationId);
 
@@ -115,6 +130,10 @@ passport.use(
               password: Math.random().toString(36).slice(-8),
             });
           }
+        }
+
+        if (!process.env.JWT_SECRET) {
+          return done(new Error("JWT_SECRET environment variable is missing."), null);
         }
 
         const token = jwt.sign(

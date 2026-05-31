@@ -16,6 +16,11 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token format" });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET environment variable is missing.");
+      return res.status(500).json({ message: "Server authentication is not configured" });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id).select("-password");

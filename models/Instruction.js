@@ -4,6 +4,6 @@ const instructionSchema = new mongoose.Schema({
   text: { type: String, required: true }, // Instruction text
 });
 
-const Crop = mongoose.model("Instruction", instructionSchema);
+const Instruction = mongoose.model("Instruction", instructionSchema);
 
-module.exports = Crop;
+module.exports = Instruction;
