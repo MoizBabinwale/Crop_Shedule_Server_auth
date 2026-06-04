@@ -1,18 +1,32 @@
 const mongoose = require("mongoose");
-// const { MongoClient, ServerApiVersion } = require("mongodb");
 require("dotenv").config();
 
-if (!process.env.CONNECTION) {
+const connectionString = process.env.CONNECTION ? process.env.CONNECTION.trim() : null;
+
+if (!connectionString) {
   console.error("MongoDB connection string is missing. Set CONNECTION in environment variables.");
-} else {
-  mongoose
-    .connect(process.env.CONNECTION)
-    .then(() => {
-      console.log("Successfully Connected to DB");
-    })
-    .catch((error) => {
-      console.error("Error connecting to MongoDB:", error);
-    });
+  process.exit(1);
 }
 
-module.exports = mongoose;
+const connectOptions = {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  family: 4,
+};
+
+const dbConnectionPromise = mongoose
+  .connect(connectionString, connectOptions)
+  .then(() => {
+    console.log("Successfully connected to MongoDB");
+    return mongoose;
+  })
+  .catch((error) => {
+    console.error("Error connecting to MongoDB:", error);
+    process.exit(1);
+  });
+
+mongoose.connection.on("error", (err) => {
+  console.error("MongoDB connection error:", err);
+});
+
+module.exports = dbConnectionPromise;

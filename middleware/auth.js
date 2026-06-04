@@ -1,8 +1,14 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 
 const auth = async (req, res, next) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error("Auth middleware blocked request because MongoDB is not connected.");
+      return res.status(503).json({ message: "Database unavailable" });
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -11,7 +17,6 @@ const auth = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    // 🔍 Extra safety
     if (!token || token === "null" || token === "undefined") {
       return res.status(401).json({ message: "Invalid token format" });
     }
@@ -32,6 +37,9 @@ const auth = async (req, res, next) => {
       id: user._id,
       role: user.role,
       email: user.email,
+      approved: user.approved,
+      viewAccess: user.viewAccess,
+      canEditSchedule: user.canEditSchedule,
     };
 
     next();

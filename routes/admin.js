@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const User = require("../models/User");
 // const auth = require("../middleware/auth");
 const { adminAuth, auth } = require("../middleware/auth");
@@ -32,9 +33,9 @@ router.put("/approve/:id", async (req, res) => {
 });
 
 // Edit user (name, email, role, approved)
-router.put("/edit/:id", async (req, res) => {
+router.put("/edit/:id", auth, adminAuth, async (req, res) => {
   try {
-    const { name, email, role, approved, place, tahsil, district, state } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -45,8 +46,11 @@ router.put("/edit/:id", async (req, res) => {
 
     if (name) user.name = name;
     if (email) user.email = email;
+    if (number !== undefined) user.number = number;
     if (role) user.role = role;
     if (typeof approved !== "undefined") user.approved = approved;
+    if (viewAccess && ["none", "all-users", "subadmins"].includes(viewAccess)) user.viewAccess = viewAccess;
+    if (typeof canEditSchedule !== "undefined") user.canEditSchedule = canEditSchedule;
 
     await user.save();
     res.json({ message: "User updated" });
@@ -92,9 +96,24 @@ router.put("/update-role/:id", auth, adminAuth, async (req, res) => {
 });
 
 // GET ALL USERS WITH QUOTATION COUNT (admin only)
-router.get("/get-users", async (req, res) => {
+router.get("/get-users", auth, adminAuth, async (req, res) => {
   try {
-    const users = await User.aggregate([
+    const matchStage = {};
+    if (req.user.role === "subadmin") {
+      if (req.user.viewAccess === "subadmins") {
+        matchStage.role = "subadmin";
+      } else if (req.user.viewAccess === "none") {
+        if (!mongoose.isValidObjectId(req.user.id)) {
+          return res.status(400).json({ message: "Invalid user id" });
+        }
+        matchStage._id = new mongoose.Types.ObjectId(req.user.id);
+      }
+    }
+
+    const pipeline = [];
+    if (Object.keys(matchStage).length > 0) pipeline.push({ $match: matchStage });
+
+    pipeline.push(
       // 1️⃣ Role priority for sorting
       {
         $addFields: {
@@ -138,7 +157,9 @@ router.get("/get-users", async (req, res) => {
           quotations: 0, // ❌ remove heavy array
         },
       },
-    ]);
+    );
+
+    const users = await User.aggregate(pipeline);
 
     return res.status(200).json({ success: true, users });
   } catch (err) {
@@ -156,7 +177,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, number, role, approved, place, tahsil, district, state } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule } = req.body;
 
     // 🔎 Check email uniqueness
     const emailExists = await User.findOne({
@@ -188,8 +209,10 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
         tahsil,
         district,
         state,
+        viewAccess,
+        canEditSchedule,
       },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select("-password");
 
     if (!updatedUser) {

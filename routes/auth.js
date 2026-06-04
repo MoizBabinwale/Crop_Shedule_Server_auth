@@ -7,25 +7,37 @@ const { auth } = require("../middleware/auth");
 const dotenv = require("dotenv");
 dotenv.config();
 
+const normalizePhone = (phone) => {
+  if (phone === undefined || phone === null) return phone;
+  return String(phone).replace(/\D/g, "");
+};
+
+const normalizeEmail = (email) => {
+  if (!email) return email;
+  return String(email).trim().toLowerCase();
+};
+
 // Register new user
 // Register new user
 router.post("/register", async (req, res) => {
   try {
     const { name, email, number, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedNumber = normalizePhone(number);
 
     // Validate required fields
-    if (!name || !number || !password || !email) {
+    if (!name || !normalizedNumber || !password || !normalizedEmail) {
       return res.status(400).json({ message: "Please provide name, email, number, and password" });
     }
 
     // Check if number already exists
-    let existingNumber = await User.findOne({ number });
+    const existingNumber = await User.findOne({ number: normalizedNumber });
     if (existingNumber) {
       return res.status(400).json({ message: "Mobile number already exists" });
     }
 
     // Check if email already exists
-    let existingEmail = await User.findOne({ email });
+    const existingEmail = await User.findOne({ email: normalizedEmail });
     if (existingEmail) {
       return res.status(400).json({ message: "Email already exists" });
     }
@@ -35,15 +47,19 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, salt);
 
     // Create new user
-    const user = new User({ name, email, number, password: hashed });
+    const user = new User({ name: name.trim(), email: normalizedEmail, number: normalizedNumber, password: hashed });
     await user.save();
 
     res.status(201).json({
       message: "Registered successfully. Waiting for admin approval.",
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Auth register error:", err);
+    if (err.code === 11000) {
+      const duplicateField = err.keyPattern?.email ? "Email" : err.keyPattern?.number ? "Mobile number" : "Field";
+      return res.status(400).json({ message: `${duplicateField} already exists` });
+    }
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -51,10 +67,11 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { number, password } = req.body;
+    const normalizedNumber = normalizePhone(number);
 
-    if (!number || !password) return res.status(400).json({ message: "Please provide email and password" });
+    if (!normalizedNumber || !password) return res.status(400).json({ message: "Please provide mobile number and password" });
 
-    const user = await User.findOne({ number });
+    const user = await User.findOne({ number: normalizedNumber });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);

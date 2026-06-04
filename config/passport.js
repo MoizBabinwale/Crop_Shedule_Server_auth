@@ -35,7 +35,7 @@ passport.use(
 
     async (req, accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails?.[0]?.value;
+        const email = profile.emails?.[0]?.value?.toLowerCase?.();
 
         if (!email) {
           return done(new Error("Google profile did not include an email address."), null);

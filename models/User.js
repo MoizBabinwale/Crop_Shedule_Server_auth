@@ -51,6 +51,17 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
 
+  viewAccess: {
+    type: String,
+    enum: ["none", "all-users", "subadmins"],
+    default: "none",
+  },
+
+  canEditSchedule: {
+    type: Boolean,
+    default: false,
+  },
+
   /* -----------------------------------------
      STORE ALL QUOTATIONS CREATED BY THIS USER
   ------------------------------------------*/

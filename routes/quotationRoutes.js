@@ -45,9 +45,9 @@ router.post("/", auth, async (req, res) => {
 
       name: req.body.farmerInfo?.name || user.name || "",
 
-      email: user.email || req.body.farmerInfo?.email || "",
+      email: req.body.farmerInfo?.email || user.email || "",
 
-      number: user.number || req.body.farmerInfo?.number || "",
+      number: req.body.farmerInfo?.number || user.number || "",
 
       place: req.body.farmerInfo?.place || user.place || "",
 

@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-require("./config/config");
+const dbConnectionPromise = require("./config/config");
 require("./config/passport");
 
 const app = express();
@@ -63,8 +63,26 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-if (process.env.VERCEL !== "1") {
-  app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
-}
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+});
+
+const startServer = async () => {
+  try {
+    await dbConnectionPromise;
+    if (process.env.VERCEL !== "1") {
+      app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+    }
+  } catch (err) {
+    console.error("Failed to start server due to MongoDB connection failure.", err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = app;
