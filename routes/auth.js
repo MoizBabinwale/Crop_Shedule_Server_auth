@@ -85,7 +85,10 @@ router.post("/login", async (req, res) => {
     const payload = { id: user._id, role: user.role, email: user?.email, number: user.number };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.json({ token, user });
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    res.json({ token, user: safeUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

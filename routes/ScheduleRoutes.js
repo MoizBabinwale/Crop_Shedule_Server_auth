@@ -3,7 +3,11 @@ const router = express.Router();
 const Schedule = require("../models/Schedule");
 const Crop = require("../models/Crop.js");
 const { auth } = require("../middleware/auth.js");
+const ScheduleBill = require("../models/ScheduleBill.js");
 const User = require("../models/User.js");
+
+const canViewSchedule = (user) => user?.role === "admin" || user?.canSeeSchedule || user?.canEditSchedule || user?.canRemoveSchedule;
+const canEditSchedule = (user) => user?.role === "admin" || user?.canEditSchedule;
 
 // GET /schedule/:cropId
 router.get("/get/:cropId", async (req, res) => {
@@ -25,6 +29,10 @@ router.get("/get/:cropId", async (req, res) => {
 // POST /schedule/create
 router.post("/create/:cropId", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin" && !req.user.canEditSchedule) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const cropId = req.params.cropId;
     const { weeks, totalPlants } = req.body;
     // ✅ ALWAYS take userId from token
@@ -108,8 +116,12 @@ router.put("/approve/:scheduleId", auth, async (req, res) => {
   }
 });
 
-router.post("/schedulebill/create", async (req, res) => {
+router.post("/schedulebill/create", auth, async (req, res) => {
   try {
+    if (!canEditSchedule(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const newBill = new ScheduleBill(req.body);
     const saved = await newBill.save();
 
@@ -122,8 +134,12 @@ router.post("/schedulebill/create", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", auth, async (req, res) => {
   try {
+    if (!canViewSchedule(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const scheduleId = req.params.id;
 
     const schedule = await Schedule.findById(scheduleId).populate("cropId");
@@ -142,6 +158,10 @@ router.get("/:id", async (req, res) => {
 // 📋 Copy Crop API with week adjustment
 router.post("/copyCrop/:cropId", auth, async (req, res) => {
   try {
+    if (!canEditSchedule(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const { cropId } = req.params;
     const { name, description, weeks } = req.body;
 

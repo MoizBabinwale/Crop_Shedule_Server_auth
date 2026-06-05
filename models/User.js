@@ -62,6 +62,16 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
 
+  canSeeSchedule: {
+    type: Boolean,
+    default: false,
+  },
+
+  canRemoveSchedule: {
+    type: Boolean,
+    default: false,
+  },
+
   /* -----------------------------------------
      STORE ALL QUOTATIONS CREATED BY THIS USER
   ------------------------------------------*/

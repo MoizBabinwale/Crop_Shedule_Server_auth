@@ -1,12 +1,20 @@
 const express = require("express");
 const ScheduleBill = require("../models/ScheduleBill");
 const Schedule = require("../models/Schedule");
+const { auth } = require("../middleware/auth");
 const router = express.Router();
+
+const canViewSchedule = (user) => user?.role === "admin" || user?.canSeeSchedule || user?.canEditSchedule || user?.canRemoveSchedule;
+const canEditSchedule = (user) => user?.role === "admin" || user?.canEditSchedule;
 
 // GET existing Schedule Bill by scheduleId
 
-router.get("/:scheduleId", async (req, res) => {
+router.get("/:scheduleId", auth, async (req, res) => {
   try {
+    if (!canViewSchedule(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const bill = await ScheduleBill.findOne({ scheduleId: req.params.scheduleId });
     if (!bill) return res.status(404).json({ message: "No bill found" });
     res.status(200).json(bill);
@@ -16,8 +24,12 @@ router.get("/:scheduleId", async (req, res) => {
 });
 
 // POST or UPDATE Schedule Bill
-router.post("/", async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
+    if (!canEditSchedule(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const { scheduleId } = req.body;
 
     // Check if a bill already exists for this scheduleId

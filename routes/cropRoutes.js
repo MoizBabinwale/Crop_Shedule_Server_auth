@@ -5,9 +5,16 @@ const Schedule = require("../models/Schedule");
 const Quotation = require("../models/Quotation");
 const { auth } = require("../middleware/auth");
 
+const canEditCrop = (user) => user?.role === "admin" || user?.canEditSchedule;
+const canRemoveCrop = (user) => user?.role === "admin" || user?.canRemoveSchedule;
+
 // POST - Add new crop
 router.post("/add", auth, async (req, res) => {
   try {
+    if (!canEditCrop(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const { name, description, weeks, weekInterval, userId } = req.body;
     const newCrop = new Crop({ name, description, weeks, weekInterval, userId });
     await newCrop.save();
@@ -86,8 +93,12 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT - Update a crop
-router.put("/:id", async (req, res) => {
+router.put("/:id", auth, async (req, res) => {
   try {
+    if (!canEditCrop(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const updatedCrop = await Crop.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updatedCrop);
   } catch (error) {
@@ -96,11 +107,15 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE - Delete a crop and its schedules
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   try {
+    if (!canRemoveCrop(req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const cropId = req.params.id;
     await Crop.findByIdAndDelete(cropId);
-    await Schedule.deleteOne({ cropId }); // or deleteMany if multiple schedules per crop
+    await Schedule.deleteMany({ cropId });
     res.json({ message: "Crop and associated schedule deleted successfully" });
   } catch (error) {
     console.error("Error deleting crop and schedule:", error);

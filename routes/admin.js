@@ -35,7 +35,7 @@ router.put("/approve/:id", async (req, res) => {
 // Edit user (name, email, role, approved)
 router.put("/edit/:id", auth, adminAuth, async (req, res) => {
   try {
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -51,6 +51,8 @@ router.put("/edit/:id", auth, adminAuth, async (req, res) => {
     if (typeof approved !== "undefined") user.approved = approved;
     if (viewAccess && ["none", "all-users", "subadmins"].includes(viewAccess)) user.viewAccess = viewAccess;
     if (typeof canEditSchedule !== "undefined") user.canEditSchedule = canEditSchedule;
+    if (typeof canSeeSchedule !== "undefined") user.canSeeSchedule = canSeeSchedule;
+    if (typeof canRemoveSchedule !== "undefined") user.canRemoveSchedule = canRemoveSchedule;
 
     await user.save();
     res.json({ message: "User updated" });
@@ -177,7 +179,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule } = req.body;
 
     // 🔎 Check email uniqueness
     const emailExists = await User.findOne({
@@ -211,6 +213,8 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
         state,
         viewAccess,
         canEditSchedule,
+        canSeeSchedule,
+        canRemoveSchedule,
       },
       { new: true, runValidators: true },
     ).select("-password");
