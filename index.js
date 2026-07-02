@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const dbConnectionPromise = require("./config/config");
 require("./config/passport");
+const { startWhatsAppReminderScheduler } = require("./jobs/scheduler");
 
 const app = express();
 
@@ -76,6 +77,7 @@ const startServer = async () => {
     await dbConnectionPromise;
     if (process.env.VERCEL !== "1") {
       app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+      startWhatsAppReminderScheduler();
     }
   } catch (err) {
     console.error("Failed to start server due to MongoDB connection failure.", err);

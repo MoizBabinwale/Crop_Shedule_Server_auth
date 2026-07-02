@@ -33,6 +33,7 @@ const quotationSchema = new mongoose.Schema(
         useStartDay: String,
         instructions: String,
         googleEventId: String,
+        whatsappReminderSentAt: Date,
         products: [
           {
             name: String,
@@ -46,6 +47,11 @@ const quotationSchema = new mongoose.Schema(
         ],
       },
     ],
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     farmerInfo: {
       _id: {
         type: mongoose.Schema.Types.ObjectId,

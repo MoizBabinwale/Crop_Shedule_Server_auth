@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const roleAuth = require("../middleware/roleAuth");
 const { addQuotationEvents, deleteQuotationEvents } = require("../utils/googleCalendar");
+const { sendQuotationWhatsAppAlert } = require("../utils/whatsapp");
+
 router.post("/", auth, async (req, res) => {
   try {
     console.log(`[Quotation] 📝 Creating quotation for user...`);
@@ -61,8 +63,12 @@ router.post("/", auth, async (req, res) => {
     };
 
     // CREATE QUOTATION
+    const quotationPayload = {
+      ...req.body,
+      createdBy: req.user?.id || req.body.createdBy || null,
+    };
 
-    const newQuotation = await Quotation.create(req.body);
+    const newQuotation = await Quotation.create(quotationPayload);
 
     console.log(`[Quotation] ✅ Quotation created: ${newQuotation._id}`);
 
@@ -123,6 +129,10 @@ router.get("/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
         path: "farmerInfo._id",
         select: "name email role approved",
       })
+      .populate({
+        path: "createdBy",
+        select: "name email number role",
+      })
       .sort({ createdAt: -1 });
 
     res.status(200).json({ quotations });
@@ -131,6 +141,39 @@ router.get("/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch quotations",
+    });
+  }
+});
+
+// CALENDAR FEED FOR ADMIN / SUBADMIN
+router.get("/calendar", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
+  try {
+    if (req.user.role !== "admin" && !req.user.canAccessQuotationCalendar) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to the quotation calendar",
+      });
+    }
+
+    const quotations = await Quotation.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "farmerInfo._id",
+        select: "name email role approved",
+      })
+      .populate({
+        path: "createdBy",
+        select: "name email number role",
+      });
+
+    res.status(200).json({
+      quotations,
+    });
+  } catch (error) {
+    console.error("Error fetching quotation calendar feed:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch quotation calendar feed",
     });
   }
 });
@@ -152,6 +195,81 @@ router.delete("/:id", auth, roleAuth(["admin", "subadmin"]), async (req, res) =>
     res.status(200).json({ message: "Quotation deleted" });
   } catch (err) {
     res.status(500).json({ error: "Failed to delete quotation" });
+  }
+});
+
+// WHATSAPP ALERT FOR A QUOTATION / WEEK
+router.post("/:id/whatsapp-alert", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
+  // const quotation = await Quotation.findById(req.params.id);
+  // if (!quotation) {
+  //   return res.status(404).json({ message: "Quotation not found" });
+  // }
+
+  // console.log(`[WhatsApp] Processing alert for quotation ${req.params.id}`);
+  // console.log(`[WhatsApp] Farmer info:`, quotation?.farmerInfo);
+  // console.log(`[WhatsApp] Week number:`, req.body?.weekNumber);
+
+  // const result = await sendQuotationWhatsAppAlert(quotation, req.body?.weekNumber);
+  // console.log(`[WhatsApp] Result:`, result);
+  // return res.status(200).json(result);
+  try {
+    const { buildWhatsappMessage, buildWhatsappFallbackUrl, normalizeWhatsAppNumber, getWeekSummary } = require("../utils/whatsapp");
+    const quotation = await Quotation.findById(req.params.id);
+
+    const rawNumber = quotation?.farmerInfo?.number;
+    const whatsappNumber = normalizeWhatsAppNumber(rawNumber);
+
+    if (!whatsappNumber) {
+      return res.status(400).json({
+        message: "Farmer mobile number is missing or invalid",
+        error: err.message,
+      });
+    }
+
+    const message = buildWhatsappMessage(quotation, req.body?.weekNumber);
+    const whatsappUrl = buildWhatsappFallbackUrl(whatsappNumber, message);
+
+    return res.status(200).json({
+      message: "WhatsApp link generated",
+      mode: "preview",
+      whatsappNumber,
+      whatsappUrl,
+      previewMessage: message,
+    });
+  } catch (fallbackErr) {
+    console.error("❌ Fallback also failed:", fallbackErr.message);
+    res.status(500).json({
+      message: "Failed to prepare WhatsApp alert",
+      error: err.message,
+    });
+  }
+  // } catch (err) {
+  //   console.error("❌ Failed to send WhatsApp alert:", err.message);
+  //   console.error("Stack trace:", err.stack);
+
+  //   // Even if there's an error, try to generate the fallback WhatsApp URL
+  // }
+});
+
+// RUN DAILY WHATSAPP REMINDERS (for cron services / manual trigger)
+router.post("/whatsapp-reminders/run", async (req, res) => {
+  try {
+    const cronSecret = process.env.WHATSAPP_CRON_SECRET;
+    const providedSecret = req.headers["x-cron-secret"] || req.query.secret;
+
+    if (!cronSecret || providedSecret !== cronSecret) {
+      return res.status(401).json({ message: "Unauthorized cron request" });
+    }
+
+    const { runWhatsAppReminders } = require("../jobs/whatsappReminders");
+    const result = await runWhatsAppReminders();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Failed to run WhatsApp reminders:", err.message);
+    res.status(500).json({
+      message: "Failed to run WhatsApp reminders",
+      error: err.message,
+    });
   }
 });
 
@@ -188,7 +306,20 @@ router.get("/count/quotaionCount", auth, async (req, res) => {
 // ✅ LAST: dynamic route
 router.get("/:id", async (req, res) => {
   try {
-    const quotation = await Quotation.findById(req.params.id);
+    const quotation = await Quotation.findById(req.params.id)
+      .populate({
+        path: "farmerInfo._id",
+        select: "name email role approved",
+      })
+      .populate({
+        path: "createdBy",
+        select: "name email number role",
+      });
+
+    if (!quotation) {
+      return res.status(404).json({ message: "Quotation not found" });
+    }
+
     res.status(200).json(quotation);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch quotation" });

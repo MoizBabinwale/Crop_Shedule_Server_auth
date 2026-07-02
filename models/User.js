@@ -72,6 +72,11 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
 
+  canAccessQuotationCalendar: {
+    type: Boolean,
+    default: false,
+  },
+
   /* -----------------------------------------
      STORE ALL QUOTATIONS CREATED BY THIS USER
   ------------------------------------------*/

@@ -42,6 +42,7 @@ const auth = async (req, res, next) => {
       canEditSchedule: user.canEditSchedule,
       canSeeSchedule: user.canSeeSchedule,
       canRemoveSchedule: user.canRemoveSchedule,
+      canAccessQuotationCalendar: user.canAccessQuotationCalendar,
     };
 
     next();

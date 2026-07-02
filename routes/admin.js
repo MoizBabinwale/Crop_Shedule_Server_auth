@@ -35,7 +35,7 @@ router.put("/approve/:id", async (req, res) => {
 // Edit user (name, email, role, approved)
 router.put("/edit/:id", auth, adminAuth, async (req, res) => {
   try {
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -53,6 +53,7 @@ router.put("/edit/:id", auth, adminAuth, async (req, res) => {
     if (typeof canEditSchedule !== "undefined") user.canEditSchedule = canEditSchedule;
     if (typeof canSeeSchedule !== "undefined") user.canSeeSchedule = canSeeSchedule;
     if (typeof canRemoveSchedule !== "undefined") user.canRemoveSchedule = canRemoveSchedule;
+    if (typeof canAccessQuotationCalendar !== "undefined") user.canAccessQuotationCalendar = canAccessQuotationCalendar;
 
     await user.save();
     res.json({ message: "User updated" });
@@ -179,7 +180,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule } = req.body;
+    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
 
     // 🔎 Check email uniqueness
     const emailExists = await User.findOne({
@@ -215,6 +216,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
         canEditSchedule,
         canSeeSchedule,
         canRemoveSchedule,
+        canAccessQuotationCalendar: req.body.canAccessQuotationCalendar ?? false,
       },
       { new: true, runValidators: true },
     ).select("-password");
