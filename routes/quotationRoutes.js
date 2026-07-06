@@ -240,7 +240,7 @@ router.post("/:id/whatsapp-alert", auth, roleAuth(["admin", "subadmin"]), async 
     console.error("❌ Fallback also failed:", fallbackErr.message);
     res.status(500).json({
       message: "Failed to prepare WhatsApp alert",
-      error: err.message,
+      error: fallbackErr.message,
     });
   }
   // } catch (err) {

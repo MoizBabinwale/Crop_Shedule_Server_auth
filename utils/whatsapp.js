@@ -52,6 +52,57 @@ const getWeekSummary = (quotation, weekNumber) => {
   return futureWeek || weeks[0];
 };
 
+function parseQtyString(qty = "") {
+  const text = String(qty).toLowerCase();
+
+  const lMatch = text.match(/(\d+(\.\d+)?)\s*(l|ltr|liter|लीटर)/i);
+  const mlMatch = text.match(/(\d+(\.\d+)?)\s*(ml|मिली|मिलि)/i);
+
+  return {
+    l: lMatch ? Number(lMatch[1]) : 0,
+    ml: mlMatch ? Number(mlMatch[1]) : 0,
+  };
+}
+
+const formatWaterAmount = (value) => parseFloat(Number(value).toFixed(2));
+const detectHindiExtraInstruction = (instruction = "") => {
+  const text = instruction.toLowerCase();
+
+  if (text.includes("ड्रेंचिंग") || text.includes("drenching")) {
+    return "पानी में मिलाकर ड्रिप या ड्रेंचिंग के माध्यम से देना है।";
+  }
+
+  if (text.includes("स्प्रे") || text.includes("spray") || text.includes("ड्रिप") || text.includes("drip")) {
+    return "पानी में मिलाकर स्प्रे या ड्रिप के माध्यम से देना है।";
+  }
+
+  return "तैयार मिश्रण को अनुशंसित विधि के अनुसार दें।";
+};
+const buildWhatsappInstruction = (week) => {
+  if (!week) return "No instructions listed";
+
+  const products = Object.values(week.products || {}).filter((p) => p.category !== "खेत पर पत्तों से धुवा");
+
+  const productText = products
+    .map((p) => {
+      const { ml, l } = parseQtyString(p.quantity);
+
+      if (l) return `${p.name} ${l} लीटर`;
+      if (ml) return `${p.name} ${ml} ml`;
+
+      return p.name;
+    })
+    .join(" और ");
+
+  const waterAmount = (week.waterPerAcre || 0) * (week.totalAcres || 1);
+
+  const water = waterAmount < 0.5 ? `${(waterAmount * 1000).toFixed(0)} ml` : `${waterAmount.toFixed(2)} लीटर`;
+
+  const extraLine = detectHindiExtraInstruction(week.instructions);
+
+  return `${productText} ${water} पानी में मिलाकर घोल तैयार करें। ${extraLine}${week.totalWater ? ` — कुल ${formatWaterAmount(week.totalWater)} लीटर पानी लगेगा` : ""}`;
+};
+
 const buildWhatsappMessage = (quotation, weekNumber) => {
   const farmerName = quotation?.farmerInfo?.name || "Farmer";
   const cropName = quotation?.cropName || "your crop";
@@ -60,7 +111,7 @@ const buildWhatsappMessage = (quotation, weekNumber) => {
   const uniqueProductNames = Array.from(new Set((week?.products || []).map((product) => product?.name).filter(Boolean)));
 
   const productLine = uniqueProductNames.length ? uniqueProductNames.join(", ") : "No products listed";
-  const instructionLine = week?.instructions || "No instructions listed";
+  const instructionLine = buildWhatsappInstruction(week);
   const weekLabel = week ? `Week ${week.weekNumber}${week.date ? ` (${formatDateOnly(week.date)})` : ""}` : "Quotation summary";
 
   return [
