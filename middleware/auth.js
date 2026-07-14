@@ -4,6 +4,7 @@ const User = require("../models/User");
 
 const auth = async (req, res, next) => {
   try {
+    console.log("Mongo ReadyState:", mongoose.connection.readyState);
     if (mongoose.connection.readyState !== 1) {
       console.error("Auth middleware blocked request because MongoDB is not connected.");
       return res.status(503).json({ message: "Database unavailable" });

@@ -4,8 +4,9 @@ require("dotenv").config();
 const connectionString = process.env.CONNECTION ? process.env.CONNECTION.trim() : null;
 
 if (!connectionString) {
-  console.error("MongoDB connection string is missing. Set CONNECTION in environment variables.");
-  process.exit(1);
+  throw new Error(
+    "MongoDB connection string is missing. Set CONNECTION in Vercel Environment Variables."
+  );
 }
 
 const connectOptions = {
@@ -20,10 +21,10 @@ const dbConnectionPromise = mongoose
     console.log("Successfully connected to MongoDB");
     return mongoose;
   })
-  .catch((error) => {
-    console.error("Error connecting to MongoDB:", error);
-    process.exit(1);
-  });
+ .catch((error) => {
+    console.error("MongoDB connection failed:", error);
+    throw error;
+});
 
 mongoose.connection.on("error", (err) => {
   console.error("MongoDB connection error:", err);
