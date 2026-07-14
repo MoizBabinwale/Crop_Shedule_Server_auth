@@ -7,23 +7,23 @@ const startWhatsAppReminderScheduler = () => {
     return;
   }
 
-  const schedule = process.env.WHATSAPP_REMINDER_CRON || "0 8 * * *";
+  // const schedule = process.env.WHATSAPP_REMINDER_CRON || "0 8 * * *";
 
-  cron.schedule(
-    schedule,
-    async () => {
-      try {
-        await runWhatsAppReminders();
-      } catch (error) {
-        console.error("[Scheduler] WhatsApp reminder job failed:", error.message);
-      }
-    },
-    {
-      timezone: "Asia/Kolkata",
-    },
-  );
+  // cron.schedule(
+  //   schedule,
+  //   async () => {
+  //     try {
+  //       await runWhatsAppReminders();
+  //     } catch (error) {
+  //       console.error("[Scheduler] WhatsApp reminder job failed:", error.message);
+  //     }
+  //   },
+  //   {
+  //     timezone: "Asia/Kolkata",
+  //   },
+  // );
 
-  console.log(`[Scheduler] WhatsApp reminder cron started (${schedule}, Asia/Kolkata).`);
+  // console.log(`[Scheduler] WhatsApp reminder cron started (${schedule}, Asia/Kolkata).`);
 };
 
 module.exports = {

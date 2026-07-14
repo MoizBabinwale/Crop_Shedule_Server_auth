@@ -1,14 +1,15 @@
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const dbConnectionPromise = require("../config/config");
 
 const auth = async (req, res, next) => {
   try {
     console.log("Mongo ReadyState:", mongoose.connection.readyState);
     if (mongoose.connection.readyState !== 1) {
-      console.error("Auth middleware blocked request because MongoDB is not connected.");
-      return res.status(503).json({ message: "Database unavailable" });
-    }
+    console.log("Waiting for MongoDB connection...");
+    await dbConnectionPromise;
+}
 
     const authHeader = req.headers.authorization;
 
