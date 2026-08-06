@@ -5,7 +5,6 @@ const dbConnectionPromise = require("../config/config");
 
 const auth = async (req, res, next) => {
   try {
-    console.log("Mongo ReadyState:", mongoose.connection.readyState);
     if (mongoose.connection.readyState !== 1) {
     console.log("Waiting for MongoDB connection...");
     await dbConnectionPromise;

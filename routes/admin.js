@@ -35,7 +35,7 @@ router.put("/approve/:id", async (req, res) => {
 // Edit user (name, email, role, approved)
 router.put("/edit/:id", auth, adminAuth, async (req, res) => {
   try {
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
+    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -48,7 +48,23 @@ router.put("/edit/:id", auth, adminAuth, async (req, res) => {
     if (email) user.email = email;
     if (number !== undefined) user.number = number;
     if (role) user.role = role;
-    if (typeof approved !== "undefined") user.approved = approved;
+
+    if (typeof status !== "undefined") {
+      if (status === "approved") {
+        user.approved = true;
+        user.isActive = true;
+      } else if (status === "pending") {
+        user.approved = false;
+        user.isActive = true;
+      } else if (status === "non-active") {
+        user.approved = true;
+        user.isActive = false;
+      }
+    } else {
+      if (typeof approved !== "undefined") user.approved = approved;
+      if (typeof isActive !== "undefined") user.isActive = isActive;
+    }
+
     if (viewAccess && ["none", "all-users", "subadmins"].includes(viewAccess)) user.viewAccess = viewAccess;
     if (typeof canEditSchedule !== "undefined") user.canEditSchedule = canEditSchedule;
     if (typeof canSeeSchedule !== "undefined") user.canSeeSchedule = canSeeSchedule;
@@ -180,7 +196,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, number, role, approved, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
+    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
 
     // 🔎 Check email uniqueness
     const emailExists = await User.findOne({
@@ -200,26 +216,39 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(400).json({ message: "Number already in use" });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.userId,
-      {
-        name,
-        email,
-        number,
-        role,
-        approved,
-        place,
-        tahsil,
-        district,
-        state,
-        viewAccess,
-        canEditSchedule,
-        canSeeSchedule,
-        canRemoveSchedule,
-        canAccessQuotationCalendar: req.body.canAccessQuotationCalendar ?? false,
-      },
-      { new: true, runValidators: true },
-    ).select("-password");
+    const updatePayload = {
+      name,
+      email,
+      number,
+      role,
+      place,
+      tahsil,
+      district,
+      state,
+      viewAccess,
+      canEditSchedule,
+      canSeeSchedule,
+      canRemoveSchedule,
+      canAccessQuotationCalendar: req.body.canAccessQuotationCalendar ?? false,
+    };
+
+    if (typeof status !== "undefined") {
+      if (status === "approved") {
+        updatePayload.approved = true;
+        updatePayload.isActive = true;
+      } else if (status === "pending") {
+        updatePayload.approved = false;
+        updatePayload.isActive = true;
+      } else if (status === "non-active") {
+        updatePayload.approved = true;
+        updatePayload.isActive = false;
+      }
+    } else {
+      if (typeof approved !== "undefined") updatePayload.approved = approved;
+      if (typeof isActive !== "undefined") updatePayload.isActive = isActive;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.params.userId, updatePayload, { new: true, runValidators: true }).select("-password");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });

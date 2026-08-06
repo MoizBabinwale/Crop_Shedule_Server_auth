@@ -70,4 +70,5 @@ const quotationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+quotationSchema.index({ createdAt: -1 });
 module.exports = mongoose.model("Quotation", quotationSchema);

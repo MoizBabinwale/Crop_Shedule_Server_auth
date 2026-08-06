@@ -155,7 +155,7 @@ router.get("/calendar", auth, roleAuth(["admin", "subadmin"]), async (req, res) 
       });
     }
 
-    const quotations = await Quotation.find()
+    const quotations = await Quotation.find({})
       .sort({ createdAt: -1 })
       .populate({
         path: "farmerInfo._id",
@@ -163,15 +163,24 @@ router.get("/calendar", auth, roleAuth(["admin", "subadmin"]), async (req, res) 
       })
       .populate({
         path: "createdBy",
-        select: "name email number role",
-      });
+        select: "name email number role isActive",
+        match: { isActive: true }, // Only populate active users
+        options: { lean: true },
+      })
+      .lean();
 
-    res.status(200).json({
-      quotations,
+    // Remove quotations whose creator is inactive
+    const filteredQuotations = quotations.filter(
+      (quotation) => quotation.createdBy !== null
+    );
+
+    return res.status(200).json({
+      quotations: filteredQuotations,
     });
   } catch (error) {
     console.error("Error fetching quotation calendar feed:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch quotation calendar feed",
     });

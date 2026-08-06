@@ -77,6 +77,10 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    if (user.isActive === false) {
+      return res.status(403).json({ message: "Your account is not active. Please contact admin." });
+    }
+
     // If the user is a normal user, ensure they're approved
     if (user.role === "user" && !user.approved) {
       return res.status(403).json({ message: "Your account is pending admin approval" });
