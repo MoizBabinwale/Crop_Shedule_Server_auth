@@ -52,6 +52,10 @@ const quotationSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
     farmerInfo: {
       _id: {
         type: mongoose.Schema.Types.ObjectId,
@@ -71,4 +75,7 @@ const quotationSchema = new mongoose.Schema(
 );
 
 quotationSchema.index({ createdAt: -1 });
+// Indexes to speed common queries: lookup by farmer and active-state queries
+quotationSchema.index({ "farmerInfo._id": 1 });
+quotationSchema.index({ isActive: 1, createdAt: -1 });
 module.exports = mongoose.model("Quotation", quotationSchema);

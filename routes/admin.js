@@ -35,7 +35,7 @@ router.put("/approve/:id", async (req, res) => {
 // Edit user (name, email, role, approved)
 router.put("/edit/:id", auth, adminAuth, async (req, res) => {
   try {
-    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
+    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar, canActiveQuotation } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -56,9 +56,6 @@ router.put("/edit/:id", auth, adminAuth, async (req, res) => {
       } else if (status === "pending") {
         user.approved = false;
         user.isActive = true;
-      } else if (status === "non-active") {
-        user.approved = true;
-        user.isActive = false;
       }
     } else {
       if (typeof approved !== "undefined") user.approved = approved;
@@ -70,6 +67,7 @@ router.put("/edit/:id", auth, adminAuth, async (req, res) => {
     if (typeof canSeeSchedule !== "undefined") user.canSeeSchedule = canSeeSchedule;
     if (typeof canRemoveSchedule !== "undefined") user.canRemoveSchedule = canRemoveSchedule;
     if (typeof canAccessQuotationCalendar !== "undefined") user.canAccessQuotationCalendar = canAccessQuotationCalendar;
+    if (typeof canActiveQuotation !== "undefined") user.canActiveQuotation = canActiveQuotation;
 
     await user.save();
     res.json({ message: "User updated" });
@@ -196,7 +194,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar } = req.body;
+    const { name, email, number, role, approved, isActive, status, place, tahsil, district, state, viewAccess, canEditSchedule, canSeeSchedule, canRemoveSchedule, canAccessQuotationCalendar,canActiveQuotation } = req.body;
 
     // 🔎 Check email uniqueness
     const emailExists = await User.findOne({
@@ -230,6 +228,7 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       canSeeSchedule,
       canRemoveSchedule,
       canAccessQuotationCalendar: req.body.canAccessQuotationCalendar ?? false,
+      canActiveQuotation: req.body.canActiveQuotation ?? false,
     };
 
     if (typeof status !== "undefined") {
@@ -239,9 +238,6 @@ router.put("/edit-user/:userId", auth, async (req, res) => {
       } else if (status === "pending") {
         updatePayload.approved = false;
         updatePayload.isActive = true;
-      } else if (status === "non-active") {
-        updatePayload.approved = true;
-        updatePayload.isActive = false;
       }
     } else {
       if (typeof approved !== "undefined") updatePayload.approved = approved;

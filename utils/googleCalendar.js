@@ -29,6 +29,12 @@ const addQuotationEvents = async (user, quotation) => {
     return [];
   }
 
+  // Do not sync calendar for inactive users
+  if (user.isActive === false) {
+    console.log(`[Calendar Sync] ⏭ Skipping calendar sync for inactive user ${user._id}`);
+    return [];
+  }
+
   if (!user.googleRefreshToken && !user.googleAccessToken) {
     throw new Error("No Google credentials available for calendar sync.");
   }

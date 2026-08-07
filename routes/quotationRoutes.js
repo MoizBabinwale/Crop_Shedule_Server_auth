@@ -84,7 +84,7 @@ router.post("/", auth, async (req, res) => {
 
     console.log(`[Quotation] 👤 User: ${user._id}, Google Calendar Connected: ${user.googleCalendarConnected}`);
 
-    if (user.googleCalendarConnected) {
+    if (user.googleCalendarConnected && user.isActive !== false) {
       console.log(`[Quotation] 📅 Syncing to Google Calendar...`);
 
       try {
@@ -94,8 +94,10 @@ router.post("/", auth, async (req, res) => {
       } catch (calendarError) {
         console.error("[Quotation] ❌ Google Calendar sync failed:", calendarError.message);
       }
-    } else {
+    } else if (!user.googleCalendarConnected) {
       console.log(`[Quotation] ⚠️ User hasn't connected Google Calendar`);
+    } else if (user.isActive === false) {
+      console.log(`[Quotation] ⚠️ Skipping calendar sync because user ${user._id} is inactive`);
     }
 
     res.status(201).json(newQuotation);
@@ -124,74 +126,436 @@ router.get("/count/all", auth, roleAuth(["admin", "subadmin"]), async (req, res)
 // GET ALL QUOTATIONS (Admin / Subadmin)
 router.get("/all", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   try {
-    const quotations = await Quotation.find()
-      .populate({
-        path: "farmerInfo._id",
-        select: "name email role approved",
-      })
-      .populate({
-        path: "createdBy",
-        select: "name email number role",
-      })
-      .sort({ createdAt: -1 });
+    // Return a lightweight summary for the master list using aggregation and projections
+    const pipeline = [
+      { $sort: { createdAt: -1 } },
+      // Join farmer basic info
+      {
+        $lookup: {
+          from: "users",
+          localField: "farmerInfo._id",
+          foreignField: "_id",
+          as: "farmer",
+        },
+      },
+      { $unwind: { path: "$farmer", preserveNullAndEmptyArrays: true } },
+      // Join creator basic info
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "creator",
+        },
+      },
+      { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          cropName: 1,
+          acres: 1,
+          createdAt: 1,
+          isActive: 1,
+          "farmerInfo._id": 1,
+          "farmerInfo.name": 1,
+          "farmerInfo.place": 1,
+          "farmerInfo.tahsil": 1,
+          "farmerInfo.district": 1,
+          "farmerInfo.state": 1,
+          "farmer": { name: "$farmer.name", email: "$farmer.email" },
+          "creator": { name: "$creator.name", email: "$creator.email", isActive: "$creator.isActive" },
+          weeksCount: { $size: { $ifNull: ["$weeks", []] } },
+        },
+      },
+    ];
+
+    const quotations = await Quotation.aggregate(pipeline).allowDiskUse(false);
 
     res.status(200).json({ quotations });
   } catch (error) {
-    console.error("Error fetching quotations:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch quotations",
-    });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to fetch quotations" });
   }
 });
 
 // CALENDAR FEED FOR ADMIN / SUBADMIN
+// router.get("/calendar", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
+//   try {
+//     if (
+//       req.user.role !== "admin" &&
+//       !req.user.canAccessQuotationCalendar
+//     ) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You do not have access to the quotation calendar",
+//       });
+//     }
+
+//     const month = Number(req.query.month);
+//     const year = Number(req.query.year);
+// console.log("month ",month,year);
+
+//     const match = {
+//       isActive: true, // Only active quotations
+//     };
+
+//     if (!Number.isNaN(month) && !Number.isNaN(year)) {
+//       const startDate = new Date(year, month - 1, 1);
+//       const endDate = new Date(year, month, 1);
+
+//       match["weeks.date"] = {
+//         $gte: startDate,
+//         $lt: endDate,
+//       };
+//     }
+
+//     const quotations = await Quotation.aggregate([
+//       { $match: match },
+
+//       { $sort: { createdAt: -1 } },
+
+//       {
+//         $lookup: {
+//           from: "users",
+//           localField: "farmerInfo._id",
+//           foreignField: "_id",
+//           as: "farmer",
+//           pipeline: [
+//             {
+//               $project: {
+//                 name: 1,
+//                 email: 1,
+//                 role: 1,
+//                 approved: 1,
+//               },
+//             },
+//           ],
+//         },
+//       },
+
+//       {
+//         $unwind: {
+//           path: "$farmer",
+//           preserveNullAndEmptyArrays: true,
+//         },
+//       },
+
+//       {
+//         $lookup: {
+//           from: "users",
+//           localField: "createdBy",
+//           foreignField: "_id",
+//           as: "creator",
+//           pipeline: [
+//             {
+//               $project: {
+//                 name: 1,
+//                 email: 1,
+//                 number: 1,
+//                 role: 1,
+//               },
+//             },
+//           ],
+//         },
+//       },
+
+//       {
+//         $unwind: {
+//           path: "$creator",
+//           preserveNullAndEmptyArrays: true,
+//         },
+//       },
+
+//       {
+//         $project: {
+//           cropName: 1,
+//           acres: 1,
+//           weeks: 1,
+//           createdAt: 1,
+//           isActive: 1,
+//           farmerInfo: {
+//             _id: "$farmerInfo._id",
+//             name: "$farmerInfo.name",
+//             email: "$farmerInfo.email",
+//             number: "$farmerInfo.number",
+//             place: "$farmerInfo.place",
+//             tahsil: "$farmerInfo.tahsil",
+//             district: "$farmerInfo.district",
+//             state: "$farmerInfo.state",
+//             startDate: "$farmerInfo.startDate",
+//           },
+//           farmer: {
+//             _id: "$farmer._id",
+//             name: "$farmer.name",
+//             email: "$farmer.email",
+//           },
+//           creator: 1,
+//         },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       success: true,
+//       quotations,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching quotation calendar:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch quotation calendar",
+//     });
+//   }
+// });
+
 router.get("/calendar", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   try {
-    if (req.user.role !== "admin" && !req.user.canAccessQuotationCalendar) {
+    if (
+      req.user.role !== "admin" &&
+      !req.user.canAccessQuotationCalendar
+    ) {
       return res.status(403).json({
         success: false,
         message: "You do not have access to the quotation calendar",
       });
     }
 
-    const quotations = await Quotation.find({})
-      .sort({ createdAt: -1 })
-      .populate({
-        path: "farmerInfo._id",
-        select: "name email role approved",
-      })
-      .populate({
-        path: "createdBy",
-        select: "name email number role isActive",
-        match: { isActive: true }, // Only populate active users
-        options: { lean: true },
-      })
-      .lean();
+    const month = Number(req.query.month);
+    const year = Number(req.query.year);
 
-    // Remove quotations whose creator is inactive
-    const filteredQuotations = quotations.filter(
-      (quotation) => quotation.createdBy !== null
-    );
+    const match = {
+      isActive: true,
+    };
+
+    let startDate;
+    let endDate;
+
+    if (!Number.isNaN(month) && !Number.isNaN(year)) {
+      startDate = new Date(year, month - 1, 1);
+      endDate = new Date(year, month, 1);
+
+      match.weeks = {
+        $elemMatch: {
+          date: {
+            $gte: startDate,
+            $lt: endDate,
+          },
+        },
+      };
+    }
+
+    const quotations = await Quotation.aggregate([
+      {
+        $match: match,
+      },
+
+      {
+        $project: {
+          cropName: 1,
+          acres: 1,
+          createdAt: 1,
+          isActive: 1,
+          createdBy: 1,
+          farmerInfo: 1,
+
+          weeks: {
+            $filter: {
+              input: "$weeks",
+              as: "week",
+              cond: {
+                $and: [
+                  {
+                    $gte: [
+                      "$$week.date",
+                      startDate || new Date("1900-01-01"),
+                    ],
+                  },
+                  {
+                    $lt: [
+                      "$$week.date",
+                      endDate || new Date("3000-01-01"),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            farmerId: "$farmerInfo._id",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$farmerId"],
+                },
+              },
+            },
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                role: 1,
+                approved: 1,
+              },
+            },
+          ],
+          as: "farmer",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$farmer",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            creatorId: "$createdBy",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$creatorId"],
+                },
+              },
+            },
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                number: 1,
+                role: 1,
+              },
+            },
+          ],
+          as: "creator",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$creator",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $project: {
+          cropName: 1,
+          acres: 1,
+          weeks: 1,
+          createdAt: 1,
+          isActive: 1,
+
+          farmerInfo: {
+            _id: "$farmerInfo._id",
+            name: "$farmerInfo.name",
+            email: "$farmerInfo.email",
+            number: "$farmerInfo.number",
+            place: "$farmerInfo.place",
+            tahsil: "$farmerInfo.tahsil",
+            district: "$farmerInfo.district",
+            state: "$farmerInfo.state",
+            startDate: "$farmerInfo.startDate",
+          },
+
+          farmer: {
+            _id: "$farmer._id",
+            name: "$farmer.name",
+            email: "$farmer.email",
+          },
+
+          creator: 1,
+        },
+      },
+    ]).allowDiskUse(false);
 
     return res.status(200).json({
-      quotations: filteredQuotations,
+      success: true,
+      quotations,
     });
   } catch (error) {
-    console.error("Error fetching quotation calendar feed:", error);
+    console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch quotation calendar feed",
+      message: "Failed to fetch quotation calendar",
     });
   }
 });
 
 // Update quotation
+router.put("/:id/active", auth, async (req, res) => {
+  try {
+    if (typeof req.body.isActive === "undefined") {
+      return res.status(400).json({ message: "isActive field is required" });
+    }
+
+    const user = req.user;
+    if (!(user.role === "admin" || (user.role === "subadmin" && user.canActiveQuotation))) {
+      return res.status(403).json({ message: "Not authorized to change quotation status" });
+    }
+
+    const updated = await Quotation.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isActive: Boolean(req.body.isActive) } },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Quotation not found" });
+    }
+
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error("Failed to update quotation active state:", err);
+    return res.status(500).json({ error: "Failed to update quotation active state" });
+  }
+});
+
 router.put("/:id", auth, roleAuth(["admin", "subadmin"]), async (req, res) => {
   try {
-    const updated = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.status(200).json(updated);
+    // Only set fields provided in the body to avoid overwriting unintentionally
+    const updatePayload = {};
+    // If client intentionally sends isActive (boolean or string), respect it
+    if (Object.prototype.hasOwnProperty.call(req.body, "isActive")) {
+      updatePayload.isActive = req.body.isActive === false ? false : Boolean(req.body.isActive);
+    }
+
+    // Allow other fields if sent (name, acres, weeks, farmerInfo etc.)
+    const allowedFields = ["cropName", "acres", "weeks", "farmerInfo", "quoBillId"];
+    for (const f of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, f)) updatePayload[f] = req.body[f];
+    }
+
+    const updated = await Quotation.findByIdAndUpdate(req.params.id, { $set: updatePayload }, { new: true, runValidators: true });
+console.log("updated ",updated);
+
+    if (!updated) return res.status(404).json({ message: "Quotation not found" });
+
+    // Return populated full quotation for frontend convenience
+    const populated = await Quotation.findById(updated._id)
+      .populate({ path: "farmerInfo._id", select: "name email place tahsil district state" })
+      .populate({ path: "createdBy", select: "name email number role isActive" });
+
+    res.status(200).json(populated);
   } catch (err) {
     res.status(500).json({ error: "Failed to update quotation" });
   }
