@@ -117,10 +117,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-canEditQuotation: {
-  type: Boolean,
-  default: false,
-},
 canActiveQuotation: {
   type: Boolean,
   default: false,
